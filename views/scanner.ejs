@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waste Collection Scanner</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-top: 2rem;
+            box-sizing: border-box;
+        }
+        h1 {
+            color: #1c1e21;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        #qr-reader {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden; /* Ensures the border-radius is respected */
+        }
+        #qr-reader-results {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            font-size: 1.1em;
+            text-align: center;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .result-success { background-color: #e7f3ff; color: #1877f2; }
+        .result-error { background-color: #ffebe8; color: #d93025; }
+        .result-info { background-color: #f0f2f5; color: #606770; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Waste Collection Scanner</h1>
+        <!-- This div is where the camera feed will appear -->
+        <div id="qr-reader"></div>
+        <!-- This div will show status messages to the user -->
+        <div id="qr-reader-results" class="result-info">Point camera at a QR code</div>
+    </div>
+
+    <!-- 1. Include the QR Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
+    <script>
+        const resultContainer = document.getElementById('qr-reader-results');
+        let lastScannedId = null;
+
+        // This function runs when a QR code is successfully scanned
+        async function onScanSuccess(decodedText, decodedResult) {
+            // Prevent multiple rapid scans of the same code
+            if (decodedText === lastScannedId) {
+                return;
+            }
+            lastScannedId = decodedText;
+
+            // Display "updating" message to the user
+            resultContainer.textContent = `Scanned House ID: ${decodedText}. Updating...`;
+            resultContainer.className = 'result-info';
+
+            try {
+                // The web app constructs the API URL and calls the server
+                // We don't need to specify the full ngrok URL because the page is already on it
+                const response = await fetch(`/collect?houseid=${decodedText}`);
+                
+                const responseText = await response.text();
+
+                if (response.ok) {
+                    resultContainer.textContent = `✅ Success! ${responseText}`;
+                    resultContainer.className = 'result-success';
+                } else {
+                    resultContainer.textContent = `❌ Error: ${responseText}`;
+                    resultContainer.className = 'result-error';
+                }
+            } catch (err) {
+                console.error("API Call Failed:", err);
+                resultContainer.textContent = '❌ Network Error. Could not connect to server.';
+                resultContainer.className = 'result-error';
+            }
+            
+            // Allow scanning another code after 3 seconds
+            setTimeout(() => { lastScannedId = null; }, 3000);
+        }
+
+        function onScanFailure(error) {
+            // This function is called frequently, so we typically leave it empty
+            // to avoid spamming the console.
+        }
+
+        // 2. Create and render the scanner instance
+        const html5QrcodeScanner = new Html5QrcodeScanner(
+            "qr-reader", 
+            { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 } 
+            },
+            /* verbose= */ false
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    </script>
+</body>
+</html>
