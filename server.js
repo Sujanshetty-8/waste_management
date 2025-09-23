@@ -87,10 +87,62 @@ app.get('/collect', async (req, res) => {
     }
 });
 
+async function addDailyPendingLogs() {
+  try {
+    const pool = await sql.connect(dbConfig);
 
-// --- Start Server ---
-const PORT = 5000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Access the scanner at http://localhost:${PORT}/scanner`);
-});
+    // Today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Insert households that do NOT already have a log for today
+    await pool.request()
+      .input("today", sql.NVarChar, today)
+      .query(`
+        INSERT INTO CollectionLogs (HouseholdID, CollectedOn, Status)
+        SELECT h.HouseholdID, GETDATE(), 'Pending'
+        FROM Households h
+        WHERE NOT EXISTS (
+          SELECT 1 
+          FROM CollectionLogs c
+          WHERE c.HouseholdID = h.HouseholdID
+            AND CAST(c.CollectedOn AS DATE) = @today
+        )
+      `);
+
+    console.log("✅ Daily Pending Logs added for today:", today);
+    await pool.close();
+  } catch (err) {
+    console.error("❌ Error adding daily pending logs:", err);
+  }
+}
+
+
+
+// should print your server
+async function startServer() {
+  try {
+    console.log(process.env.AZURE_DB_SERVER); 
+    const pool = await sql.connect(dbConfig);
+    console.log('✅ Connected to Azure SQL!');
+
+    const app = express();
+    app.use(cors());
+    app.use(express.json());
+
+    app.get('/api/households', (req, res) => {
+      res.json(data.households);
+    });
+
+    const PORT = 5000;
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+     // Add today's pending logs
+    await addDailyPendingLogs();
+
+  } catch (err) {
+    console.error('❌ Azure SQL connection failed:', err);
+  }
+}
+
+startServer();
