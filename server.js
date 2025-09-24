@@ -1,3 +1,7 @@
+// --- Securely load environment variables from a .env file ---
+// This line should be at the very top
+require('dotenv').config();
+
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
@@ -12,11 +16,12 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // --- Azure SQL configuration ---
+// Credentials are now securely loaded from process.env
 const dbConfig = {
-    user: 'admin_wastemg',
-    password: 'Nitte@hack',
-    server: 'wastemgmt-sqlserver.database.windows.net',
-    database: 'wastemgDB',
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    server: process.env.DB_SERVER,
+    database: process.env.DB_DATABASE,
     options: {
         encrypt: true,
         enableArithAbort: true,
@@ -112,8 +117,6 @@ async function addDailyPendingLogs() {
     const istDate = new Date(now.getTime() + (330 * 60 * 1000));
     const today_ist = istDate.toISOString().slice(0, 10);
 
-    // This query is more robust. It inserts 'pending' logs for households
-    // that do not have ANY log entry for today's date yet.
     const query = `
         INSERT INTO CollectionLogs (HouseholdID, CollectedOn, Status)
         SELECT h.HouseholdID, GETUTCDATE(), 'pending'
@@ -135,7 +138,6 @@ async function addDailyPendingLogs() {
     } else {
         console.log(`✅ Daily 'pending' logs for ${today_ist} are already present.`);
     }
-    // DO NOT close the pool here. It needs to stay open for the /collect route.
   } catch (err) {
     console.error("❌ Error adding daily pending logs:", err);
   }
@@ -147,13 +149,12 @@ const startServer = async () => {
         pool = await sql.connect(dbConfig);
         console.log('✅ Database connection pool established.');
         
-        // Add pending logs for today on server start
         await addDailyPendingLogs(); 
 
-        const PORT = 5000;
+        // Azure App Service provides the port in an environment variable
+        const PORT = process.env.PORT || 5000;
         app.listen(PORT, () => {
             console.log(`🚀 Server running on port ${PORT}`);
-            console.log(`👉 Access the scanner at http://localhost:${PORT}/scanner`);
         });
     } catch (err) {
         console.error('❌ Failed to connect to the database. Server not started.', err);
