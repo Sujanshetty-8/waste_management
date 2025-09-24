@@ -87,14 +87,15 @@ app.get('/collect', async (req, res) => {
     }
 });
 
+
+
+// Function to add daily pending logs
 async function addDailyPendingLogs() {
   try {
     const pool = await sql.connect(dbConfig);
 
-    // Today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
-    // Insert households that do NOT already have a log for today
     await pool.request()
       .input("today", sql.NVarChar, today)
       .query(`
@@ -116,6 +117,31 @@ async function addDailyPendingLogs() {
   }
 }
 
+// Function to reset today's collected logs back to pending
+async function resetTodayCollectedLogs() {
+  try {
+    const pool = await sql.connect(dbConfig);
+
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    const result = await pool.request()
+      .input("today", sql.NVarChar, today)
+      .query(`
+        UPDATE CollectionLogs
+        SET Status = 'pending'
+        WHERE Status = 'collected'
+          AND CAST(CollectedOn AS DATE) = @today
+      `);
+
+    console.log(
+      `✅ Reset 'collected' → 'pending' for today (${today}). Rows affected: ${result.rowsAffected[0]}`
+    );
+
+    await pool.close();
+  } catch (err) {
+    console.error("❌ Error resetting today's collected logs:", err);
+  }
+}
 
 
 // should print your server
@@ -137,9 +163,7 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
-     // Add today's pending logs
     await addDailyPendingLogs();
-
   } catch (err) {
     console.error('❌ Azure SQL connection failed:', err);
   }
