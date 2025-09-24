@@ -138,7 +138,8 @@ async function addDailyPendingLogs() {
     } else {
         console.log(`✅ Daily 'pending' logs for ${today_ist} are already present.`);
     }
-  } catch (err) {
+  } catch (err)
+ {
     console.error("❌ Error adding daily pending logs:", err);
   }
 }
@@ -163,4 +164,4 @@ const startServer = async () => {
 };
 
 startServer();
-
+```
