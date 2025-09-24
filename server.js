@@ -38,6 +38,14 @@ const dbConfig = {
 let pool;
 
 // --- Routes ---
+
+// --- Health Check Route for Azure ---
+// This is a lightweight endpoint for Azure's health check to ping.
+app.get('/health', (req, res) => {
+    // This route does nothing but confirm the server is alive.
+    res.status(200).send('OK');
+});
+
 app.get('/', (req, res) => {
     res.send(`
         <div style="font-family: sans-serif; text-align: center; padding-top: 50px;">
@@ -164,3 +172,4 @@ const startServer = async () => {
 };
 
 startServer();
+
